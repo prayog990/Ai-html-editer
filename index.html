@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Html Editor</title>
+    <!-- Ace Editor Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.15.2/ace.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            /* Default Theme: Pro Blue Dark */
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --header-color: #1a1a1a;
+            --border-color: #333333;
+            --text-color: #e0e0e0;
+            --text-muted-color: #a0a0a0;
+            --editor-bg: #1e1e1e;
+            --input-bg: #2a2a2a;
+            --input-border: #444444;
+            --accent-color: #007aff; /* Pro Blue */
+            --accent-hover-color: #005ecb;
+            --accent-success-color: #30d158;
+            --accent-danger-color: #ff453a;
+            --accent-warning-color: #ff9f0a;
+        }
+
+        body.light-theme {
+            --bg-color: #f5f5f5;
+            --surface-color: #ffffff;
+            --header-color: #ffffff;
+            --border-color: #e0e0e0;
+            --text-color: #222222;
+            --text-muted-color: #666666;
+            --editor-bg: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #cccccc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-color); color: var(--text-color);
+            overflow: hidden; display: flex; flex-direction: column; height: 100vh;
+        }
+        .header {
+            background: var(--header-color); border-bottom: 1px solid var(--border-color); padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center; height: 50px; flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 20px; font-weight: bold; background: linear-gradient(90deg, var(--accent-color), #61dafb);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-fill-color: transparent;
+        }
+        .theme-toggle {
+            background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 15px; border-radius: 4px; cursor: pointer; transition: background 0.3s; font-size: 12px;
+        }
+        .btn {
+            background: var(--accent-color); border: none; color: white; padding: 8px 12px; border-radius: 4px;
+            cursor: pointer; font-size: 13px; transition: background 0.3s; white-space: nowrap; display: inline-flex;
+            align-items: center; justify-content: center; gap: 8px; font-weight: 500;
+        }
+        .btn:hover { background: var(--accent-hover-color); }
+        .btn-action-primary { min-width: 120px; } /* बटनों का साइज़ बराबर करने के लिए */
+        .btn:disabled { background: #555; color: #999; cursor: not-allowed; }
+        body.light-theme .btn:disabled { background: #e0e0e0; color: #aaa; }
+        .btn-danger { background: var(--accent-danger-color); }
+        .btn-success { background: var(--accent-success-color); }
+        .btn-warning { background: var(--accent-warning-color); }
+        .toolbar {
+            background: var(--surface-color); border-bottom: 1px solid var(--border-color); padding: 10px 15px;
+            display: flex; gap: 15px; flex-wrap: wrap;
+        }
+        .input-container { flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 5px; }
+        .input-container label { font-size: 12px; color: var(--text-muted-color); font-weight: 500; }
+        .textarea-wrapper { position: relative; width: 100%; }
+        .input-container textarea {
+            width: 100%; height: 70px; resize: vertical; font-family: 'Monaco', monospace; background: var(--input-bg);
+            border: 1px solid var(--input-border); color: var(--text-color); padding: 8px 28px 8px 8px;
+            border-radius: 3px; font-size: 13px;
+        }
+        .btn-clear {
+            position: absolute; top: 50%; transform: translateY(-50%); right: 5px; background: none; border: none;
+            color: #999; font-size: 20px; cursor: pointer; z-index: 5;
+        }
+        .btn-clear:hover { color: var(--text-color); }
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        .editor-section, .preview-section { display: flex; flex-direction: column; width: 50%; height: 100%; }
+        .section-header {
+            background: #333; padding: 8px 15px; font-size: 13px; font-weight: 500;
+            border-bottom: 1px solid var(--border-color); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
+        }
+        body.light-theme .section-header { background: #f0f0f0; }
+        .btn-icon {
+            background: none; border: 1px solid var(--accent-danger-color); color: var(--accent-danger-color);
+            padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; transition: all 0.2s;
+        }
+        .btn-icon:hover { background: var(--accent-danger-color); color: white; }
+        .editor-container { flex: 1; position: relative; overflow: hidden; }
+        
+        .CodeMirror {
+            font-family: 'Monaco', 'Menlo', monospace; font-size: 14px;
+            line-height: 1.5; height: 100%; width: 100%;
+        }
+        body.light-theme .CodeMirror { background: var(--editor-bg); color: var(--text-color); }
+        .code-editor { height: 100%; width: 100%; }
+        
+        .preview-section { border-left: 1px solid var(--border-color); }
+        .preview-header {
+            background: #333; padding: 8px 15px; font-size: 13px; font-weight: 500; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        body.light-theme .preview-header { background: #f0f0f0; }
+        .live-indicator { color: var(--accent-success-color); font-size: 11px; display: flex; align-items: center; gap: 5px; }
+        .live-dot { width: 8px; height: 8px; background: var(--accent-success-color); border-radius: 50%; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .preview-frame { flex: 1; border: none; background: white; width: 100%; height: 100%; }
+        .hidden-file-input { display: none; }
+        .fullscreen-btn {
+            background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 4px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        body.fullscreen-preview .header, body.fullscreen-preview .toolbar, body.fullscreen-preview .tab-bar,
+        body.fullscreen-preview .editor-section, body.fullscreen-preview .footer-toolbar, body.fullscreen-preview .side-panel { display: none; }
+        body.fullscreen-preview .main-container { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 2000; }
+        body.fullscreen-preview .preview-section { width: 100%; height: 100%; border-left: none; }
+        .fullscreen-btn .fa-compress { display: none; }
+        body.fullscreen-preview .fullscreen-btn .fa-expand { display: none; }
+        body.fullscreen-preview .fullscreen-btn .fa-compress { display: inline-block; }
+
+        .find-nav-container { display: none; /* margin-left हटा दिया गया है */ }
+        .btn-nav {
+            background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-muted-color);
+            padding: 5px 10px; font-size: 14px; border-radius: 4px; cursor: pointer;
+        }
+        .btn-nav:hover { background: var(--border-color); }
+        .btn-nav.active { color: var(--accent-color); }
+        .btn-nav:disabled { color: #555; cursor: not-allowed; }
+        #replaceAllBtn { display: none; margin-left: 10px; }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7);
+            z-index: 5000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-color);
+            padding: 25px; border-radius: 10px; max-width: 90%; width: 350px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4); animation: fadeInModal 0.3s ease-out;
+        }
+        @keyframes fadeInModal { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .modal-box p { margin-bottom: 20px; font-size: 16px; line-height: 1.5; }
+        .modal-buttons { display: flex; justify-content: center; gap: 10px; }
+        .modal-buttons .btn { flex: 1; }
+        .modal-buttons .btn-secondary { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); }
+        .modal-buttons .btn-secondary:hover { background: var(--border-color); }
+
+        .theme-chooser { padding-top: 10px; border-top: 1px solid var(--border-color); }
+        .theme-chooser h4 { font-size: 14px; color: var(--text-muted-color); margin-bottom: 10px; text-align: center; }
+        .light-dark-toggle { display: flex; border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 15px; }
+        .light-dark-toggle button {
+            flex: 1; background: transparent; border: none; color: var(--text-muted-color); padding: 8px; cursor: pointer;
+        }
+        .light-dark-toggle button.active { background: var(--accent-color); color: white; }
+        .accent-colors { display: flex; justify-content: space-around; }
+        .color-swatch {
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid var(--border-color);
+            transition: transform 0.2s;
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.active { border-color: var(--accent-color); box-shadow: 0 0 10px var(--accent-color); }
+
+        /* --- Styles for Marked/Highlighted Text --- */
+        .green-marker {
+            position: absolute;
+            background-color: rgba(48, 209, 88, 0.5); /* हरा रंग (Replaced Text) */
+            z-index: 20;
+        }
+
+        /* --- Blue Highlight for Searched/Selected Text --- */
+        .ace_marker-layer .ace_selection {
+            background: rgba(80, 166, 255, 0.6) !important; /* नीला रंग (Searched Text) */
+        }
+
+        /* --- New Change Counter Style --- */
+        .change-counter {
+            font-size: 14px;
+            color: var(--text-muted-color);
+            font-weight: 500;
+            display: none; /* Initially hidden */
+            align-items: center;
+            gap: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 18px; }
+            .main-container { flex-direction: column; }
+            .editor-section, .preview-section { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: none; }
+            .editor-section.active, .preview-section.active { display: flex; position: relative; }
+            .preview-section { border-left: none; }
+            .hamburger-menu { display: block; background: var(--header-color); color: var(--text-color); border: none; font-size: 20px; padding: 0 10px; cursor: pointer; position: absolute; right: 10px; top: 15px; z-index: 1100; }
+            .header .theme-toggle { display: none; }
+            .side-panel {
+                position: fixed; top: 0; right: -300px; width: 250px; height: 100vh; background: var(--bg-color);
+                border-left: 1px solid var(--border-color); box-shadow: -5px 0 15px rgba(0,0,0,0.3); z-index: 1000;
+                transition: right 0.3s ease-in-out; display: flex; flex-direction: column;
+            }
+            .side-panel.open { right: 0; }
+            .side-panel-header {
+                background: var(--header-color); padding: 10px 15px; display: flex; justify-content: space-between;
+                align-items: center; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+            }
+            .side-panel-header h3 { font-size: 16px; color: var(--accent-color); }
+            .side-panel .btn-close { background: none; border: none; color: var(--text-color); font-size: 20px; cursor: pointer; }
+            .side-panel-content { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+            .side-panel .btn { width: 100%; justify-content: flex-start; }
+            .tab-bar {
+                display: flex; justify-content: space-around; background: var(--surface-color);
+                border-bottom: 1px solid var(--border-color); height: 45px; flex-shrink: 0;
+            }
+            .tab-button {
+                flex: 1; background: transparent; border: none; color: var(--text-muted-color); padding: 10px 0;
+                font-size: 14px; cursor: pointer; transition: all 0.3s; border-bottom: 3px solid transparent;
+            }
+            .tab-button.active { border-bottom-color: var(--accent-color); color: var(--accent-color); }
+            .footer-toolbar {
+                display: flex; justify-content: space-around; align-items: center; background: var(--surface-color);
+                border-top: 1px solid var(--border-color); height: 55px; flex-shrink: 0; padding: 0 10px; gap: 5px;
+            }
+            .footer-toolbar .btn { flex: 1; padding: 8px 5px; font-size: 12px; }
+            .toolbar { flex-direction: column; }
+        }
+    /* --- Toolbar Slider Styles --- */
+    #toolbar-slider {
+        display: none; /* यह डेस्कटॉप पर छिपा रहेगा */
+        background: var(--surface-color);
+        padding: 4px 0;
+        text-align: center;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-muted-color);
+        position: relative;
+        z-index: 10;
+    }
+    #toolbar-slider i {
+        transition: transform 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+        #toolbar-slider {
+            display: block; /* यह सिर्फ मोबाइल पर दिखेगा */
+        }
+        .toolbar {
+            transition: all 0.3s ease;
+            max-height: 500px; /* Transition के लिए */
+            overflow: hidden;
+        }
+        body.toolbar-collapsed .toolbar {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        body.toolbar-collapsed #toolbar-slider i {
+            transform: rotate(180deg); /* आइकन को घुमाओ */
+        }
+    }
+</style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>Easy Html Editor</h1>
+        <button class="theme-toggle" onclick="toggleLightDark()">
+            <i class="fas fa-sun"></i> <span>Light Mode</span>
+        </button>
+        <button class="hamburger-menu" onclick="toggleSidePanel()">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+
+    <!-- Search and Replace Toolbar -->
+    <div class="toolbar">
+        <div class="input-container">
+            <label for="findBlock">
+                <i class="fas fa-search"></i> इस कोड को खोजें: 
+                <span id="uploadedFileName" style="color: var(--accent-color); margin-left: 5px; font-weight: bold; font-size: 13px;"></span>
+            </label>
+            <div class="textarea-wrapper">
+                <textarea id="findBlock" placeholder="यहाँ पुराना कोड पेस्ट करें..."></textarea>
+                <button class="btn-clear" onclick="clearInput('findBlock')" title="Clear">×</button>
+            </div>
+            <button class="btn btn-action-primary" onclick="findAndSelectText()"><i class="fas fa-search"></i> खोजें</button>
+        </div>
+        <div class="input-container">
+            <label for="replaceBlock"><i class="fas fa-exchange-alt"></i> इस कोड से बदलें (Replace with this code):</label>
+            <div class="textarea-wrapper">
+                <textarea id="replaceBlock" placeholder="यहाँ नया कोड पेस्ट करें..."></textarea>
+                <button class="btn-clear" onclick="clearInput('replaceBlock')" title="Clear">×</button>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center;">
+                    <button class="btn btn-action-primary" onclick="replaceCodeBlock()"><i class="fas fa-magic"></i> कोड बदलें</button>
+                    <button class="btn btn-warning" id="replaceAllBtn" onclick="replaceAllCode()"><i class="fas fa-bolt"></i> सबको बदलें</button>
+                </div>
+                <span id="changeCounter" class="change-counter"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar Slider Handle -->
+<div id="toolbar-slider" onclick="toggleToolbar()">
+    <i class="fas fa-chevron-up"></i>
+</div>
+
+<!-- Mobile Tab Bar -->
+<div class="tab-bar">
+    <button class="tab-button active" id="editorTabBtn" onclick="showSection('editor')">
+        <i class="fas fa-code"></i> कोड
+    </button>
+    <button class="tab-button" id="previewTabBtn" onclick="showSection('preview')">
+        <i class="fas fa-eye"></i> प्रिव्यू
+    </button>
+</div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Editor Section -->
+        <div class="editor-section active" id="editorSection">
+            <div class="section-header">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <span><i class="fas fa-code"></i> Editor (HTML)</span>
+                    <div class="find-nav-container" id="findNavContainer">
+                        <button class="btn-nav" id="findPrevBtn" onclick="findPrev()" title="पिछला खोजें"><i class="fas fa-arrow-up"></i></button>
+                        <button class="btn-nav" id="findNextBtn" onclick="findNext()" title="अगला खोजें"><i class="fas fa-arrow-down"></i></button>
+                        <span id="matchCounter" style="font-size: 12px; margin-left: 8px; color: var(--text-muted-color);"></span>
+                    </div>
+                </div>
+                <button class="btn-icon" onclick="clearEditor()" title="Clear Editor">
+                    <i class="fas fa-trash"></i> खाली करें
+                </button>
+            </div>
+            <div class="editor-container">
+                <div class="code-editor" id="codeEditor"><!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>मेरी वेबसाइट</title>
+</head>
+<body>
+    <h1>स्वागत है!</h1>
+</body>
+</html></div>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="preview-section" id="previewSection">
+            <div class="preview-header">
+                <span><i class="fas fa-eye"></i> रियल-टाइम प्रिव्यू</span>
+                <div class="live-indicator"> <div class="live-dot"></div> <span>Live</span> </div>
+                <button class="fullscreen-btn" onclick="toggleFullScreenPreview()" title="Toggle Fullscreen">
+                    <i class="fas fa-expand"></i>
+                    <i class="fas fa-compress"></i>
+                </button>
+            </div>
+            <iframe class="preview-frame" id="previewFrame"></iframe>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="side-panel" id="sidePanel">
+        <div class="side-panel-header">
+            <h3>एक्शंस</h3>
+            <button class="btn-close" onclick="toggleSidePanel()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="side-panel-content">
+            <button class="btn" onclick="undo()" id="undoBtnSP" disabled> <i class="fas fa-undo"></i> Undo </button>
+            <button class="btn" onclick="redo()" id="redoBtnSP" disabled> <i class="fas fa-redo"></i> Redo </button>
+            <button class="btn" onclick="uploadFile()"> <i class="fas fa-folder-open"></i> अपलोड </button>
+            <button class="btn" onclick="downloadFile()"> <i class="fas fa-download"></i> डाउनलोड </button>
+            <button class="btn" onclick="openPreview()"> <i class="fas fa-external-link-alt"></i> नई विंडो में प्रिव्यू </button>
+            <button class="btn btn-danger" onclick="clearEditor()"> <i class="fas fa-trash"></i> खाली करें </button>
+            
+            <div class="theme-chooser">
+                 <h4>थीम बदलें</h4>
+                 <div class="light-dark-toggle">
+                     <button id="darkToggleBtn" class="active" onclick="setLightDark('dark')"><i class="fas fa-moon"></i></button>
+                     <button id="lightToggleBtn" onclick="setLightDark('light')"><i class="fas fa-sun"></i></button>
+                 </div>
+                 <div class="accent-colors">
+                     <div class="color-swatch active" style="background: #007aff;" data-color="#007aff" data-hover="#005ecb" onclick="setAccentColor(this)"></div>
+                     <div class="color-swatch" style="background: #ff9f0a;" data-color="#ff9f0a" data-hover="#d48508" onclick="setAccentColor(this)"></div>
+                     <div class="color-swatch" style="background: #30d158;" data-color="#30d158" data-hover="#28b049" onclick="setAccentColor(this)"></div>
+                     <div class="color-swatch" style="background: #ff453a;" data-color="#ff453a" data-hover="#d93a31" onclick="setAccentColor(this)"></div>
+                 </div>
+            </div>
+
+            <span class="file-name" id="fileNameSP" style="font-size: 13px; color: var(--text-muted-color); text-align: center; margin-top: auto; padding-top:15px;">फाइल: index.html</span>
+        </div>
+    </div>
+
+    <!-- Footer Toolbar -->
+    <div class="footer-toolbar">
+        <button class="btn" onclick="runCode()"> <i class="fas fa-play"></i> रन </button>
+        <button class="btn" onclick="undo()" id="undoBtnFT" disabled> <i class="fas fa-undo"></i> </button>
+        <button class="btn" onclick="redo()" id="redoBtnFT" disabled> <i class="fas fa-redo"></i> </button>
+        <button class="btn" onclick="uploadFile()"> <i class="fas fa-folder-open"></i> </button>
+        <button class="btn" onclick="downloadFile()"> <i class="fas fa-download"></i> </button>
+    </div>
+
+    <input type="file" class="hidden-file-input" id="fileInput" accept=".html,.htm,.txt" onchange="handleFileUpload(event)">
+
+    <div class="modal-overlay" id="customModal">
+        <div class="modal-box">
+            <p id="modalMessage"></p>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="modalCancelBtn">Cancel</button>
+                <button class="btn" id="modalOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename & Download Modal -->
+    <div class="modal-overlay" id="renameModal">
+        <div class="modal-box">
+            <h4 style="margin-bottom: 15px; color: var(--accent-color);">फाइल का नाम (Rename)</h4>
+            <div style="margin-bottom: 20px;">
+                <input type="text" id="renameInput" style="width: 100%; padding: 10px; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-color); border-radius: 5px; outline: none; font-size: 14px;">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeRenameModal()">Cancel</button>
+                <button class="btn" onclick="confirmDownload()"><i class="fas fa-download"></i> Download</button>
+            </div>
+        </div>
+    </div>
+
+        <script>
+    // --- NEW: Ace Editor Setup ---
+    const editorElement = document.getElementById('codeEditor');
+    const sidePanel = document.getElementById('sidePanel');
+    const body = document.body;
+    const themeToggleBtn = document.querySelector('.header .theme-toggle');
+    const hamburgerMenu = document.querySelector('.hamburger-menu');
+
+    let aceEditor; // Global variable for the Ace instance
+    let sidePanelOpen = false;
+    let searchMatches = [];
+    let currentMatchIndex = -1;
+    let totalChanges = 0;
+    let currentMarkers = []; // To keep track of Ace markers
+
+    // --- THEME MANAGEMENT ---
+    function setLightDark(mode) {
+        let aceTheme = 'ace/theme/tomorrow_night';
+        if (mode === 'light') {
+            body.classList.add('light-theme');
+            themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i> <span>Dark Mode</span>';
+            document.getElementById('lightToggleBtn').classList.add('active');
+            document.getElementById('darkToggleBtn').classList.remove('active');
+            aceTheme = 'ace/theme/chrome';
+        } else {
+            body.classList.remove('light-theme');
+            themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i> <span>Light Mode</span>';
+            document.getElementById('darkToggleBtn').classList.add('active');
+            document.getElementById('lightToggleBtn').classList.remove('active');
+        }
+        if (aceEditor) { aceEditor.setTheme(aceTheme); }
+        localStorage.setItem('editorThemeMode', mode);
+    }
+
+    function setAccentColor(element) {
+        const color = element.getAttribute('data-color');
+        const hoverColor = element.getAttribute('data-hover');
+        document.documentElement.style.setProperty('--accent-color', color);
+        document.documentElement.style.setProperty('--accent-hover-color', hoverColor);
+        document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+        element.classList.add('active');
+        localStorage.setItem('editorAccentColor', color);
+        localStorage.setItem('editorAccentHoverColor', hoverColor);
+    }
+    
+    function toggleLightDark() {
+        if(body.classList.contains('light-theme')) { setLightDark('dark'); } else { setLightDark('light'); }
+    }
+    
+    // --- CUSTOM MODAL FUNCTIONS (Unchanged) ---
+    const customModal = document.getElementById('customModal');
+    const modalMessage = document.getElementById('modalMessage');
+    const modalOkBtn = document.getElementById('modalOkBtn');
+    const modalCancelBtn = document.getElementById('modalCancelBtn');
+    
+    function showCustomAlert(message) {
+        modalMessage.textContent = message;
+        modalCancelBtn.style.display = 'none';
+        modalOkBtn.textContent = 'ठीक है';
+        customModal.style.display = 'flex';
+        return new Promise((resolve) => {
+            modalOkBtn.onclick = () => { customModal.style.display = 'none'; resolve(true); };
+        });
+    }
+    
+    function showCustomConfirm(message) {
+        modalMessage.textContent = message;
+        modalCancelBtn.style.display = 'block';
+        modalOkBtn.textContent = 'हाँ';
+        modalCancelBtn.textContent = 'नहीं';
+        customModal.style.display = 'flex';
+        return new Promise((resolve) => {
+            modalOkBtn.onclick = () => { customModal.style.display = 'none'; resolve(true); };
+            modalCancelBtn.onclick = () => { customModal.style.display = 'none'; resolve(false); };
+        });
+    }
+
+    // --- Core Editor Functions ---
+    function updatePreview() {
+        if (!aceEditor) return;
+        document.getElementById('previewFrame').src = 'data:text/html;charset=utf-8,' + encodeURIComponent(aceEditor.getValue());
+    }
+    
+    function saveCodeToLocalStorage() {
+        if (!aceEditor) return;
+        try {
+            localStorage.setItem('easyHtmlEditorCode', aceEditor.getValue());
+        } catch (e) {
+            console.warn("localStorage is not available.");
+        }
+    }
+
+    // --- FINAL CORRECTED LOADING LOGIC ---
+    function loadInitialCode(initialCodeFromHtml) {
+        let savedCode = null;
+        try {
+            savedCode = localStorage.getItem('easyHtmlEditorCode');
+        } catch (e) {
+            // localStorage might be blocked in content:// URI
+            console.warn("localStorage is not available.");
+        }
+        
+        if (savedCode) {
+            aceEditor.setValue(savedCode, -1);
+        } else if (initialCodeFromHtml && initialCodeFromHtml.trim() !== '') {
+            aceEditor.setValue(initialCodeFromHtml, -1);
+        } else {
+            const defaultCode = `<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>मेरी वेबसाइट</title>
+</head>
+<body>
+    <h1>स्वागत है!</h1>
+</body>
+</html>`;
+            aceEditor.setValue(defaultCode, -1);
+        }
+    }
+
+    // --- Undo/Redo updated for Ace's UndoManager ---
+    function updateUndoRedoButtons() {
+        const undoManager = aceEditor.session.getUndoManager();
+        document.querySelectorAll('#undoBtnSP, #undoBtnFT').forEach(btn => btn.disabled = !undoManager.hasUndo());
+        document.querySelectorAll('#redoBtnSP, #redoBtnFT').forEach(btn => btn.disabled = !undoManager.hasRedo());
+    }
+
+    function undo() { if (aceEditor) aceEditor.undo(); }
+    function redo() { if (aceEditor) aceEditor.redo(); }
+
+    function clearAllMarks() {
+        currentMarkers.forEach(markerId => aceEditor.session.removeMarker(markerId));
+        currentMarkers = [];
+    }
+
+    // --- Change Counter Functions ---
+    function updateChangeCounter(count) {
+        totalChanges += count;
+        const counterElement = document.getElementById('changeCounter');
+        if (totalChanges > 0) {
+            counterElement.innerHTML = `<i class="fas fa-sync-alt"></i> ${totalChanges}`;
+            counterElement.style.display = 'inline-flex';
+        } else {
+            counterElement.style.display = 'none';
+        }
+        localStorage.setItem('editorTotalChanges', totalChanges);
+    }
+
+    function resetChangeCounter() {
+        totalChanges = 0;
+        const counterElement = document.getElementById('changeCounter');
+        counterElement.style.display = 'none';
+        localStorage.setItem('editorTotalChanges', '0');
+    }
+    
+    // --- UI & Interaction Functions ---
+    function toggleSidePanel() { sidePanel.classList.toggle('open'); sidePanelOpen = !sidePanelOpen; }
+    function showSection(sectionId) {
+        document.getElementById('editorSection').classList.toggle('active', sectionId === 'editor');
+        document.getElementById('previewSection').classList.toggle('active', sectionId === 'preview');
+        document.getElementById('editorTabBtn').classList.toggle('active', sectionId === 'editor');
+        document.getElementById('previewTabBtn').classList.toggle('active', sectionId === 'preview');
+        if (sectionId === 'editor' && aceEditor) {
+            aceEditor.resize();
+        }
+        if (sectionId === 'preview') { updatePreview(); }
+    }
+    function toggleFullScreenPreview() { body.classList.toggle('fullscreen-preview'); }
+    function clearInput(elementId) { document.getElementById(elementId).value = ''; }
+    
+    // --- Search/Replace Logic for Ace ---
+    function findAndSelectText() {
+        clearAllMarks(); // पुराने हाइलाइट्स हटाएं
+        const codeToFind = document.getElementById('findBlock').value;
+        const findNavContainer = document.getElementById('findNavContainer');
+        const replaceAllBtn = document.getElementById('replaceAllBtn');
+        if (!codeToFind) {
+            showCustomAlert('खोजने के लिए बॉक्स में कुछ लिखें।');
+            return;
+        }
+        const matchesFound = aceEditor.findAll(codeToFind, { regExp: false, caseSensitive: false, wholeWord: false });
+        if (matchesFound > 0) {
+            if (window.innerWidth <= 768) { showSection('editor'); }
+            
+            // CHANGE: अब Replace All बटन सिर्फ तब दिखेगा जब 1 से ज्यादा मैच हों
+            findNavContainer.style.display = matchesFound > 1 ? 'inline-flex' : 'none';
+            replaceAllBtn.style.display = matchesFound > 1 ? 'inline-flex' : 'none';
+            
+            // Fix: Scroll to the first match
+            const ranges = aceEditor.selection.getAllRanges();
+            if(ranges.length > 0) {
+                ranges.sort((a, b) => a.start.row - b.start.row);
+                aceEditor.scrollToLine(ranges[0].start.row, true, true, function() {});
+            }
+        } else {
+            showCustomAlert('कोड नहीं मिला।');
+            findNavContainer.style.display = 'none';
+            replaceAllBtn.style.display = 'none';
+        }
+    }
+    
+    function replaceCodeBlock() {
+        const Range = ace.require('ace/range').Range;
+        const newText = document.getElementById('replaceBlock').value;
+        const currentRange = aceEditor.getSelectionRange();
+        
+        if (!currentRange || aceEditor.selection.isEmpty()) {
+             showCustomAlert('पहले "खोजें" बटन दबाकर टेक्स्ट सिलेक्ट करें।');
+             return;
+        }
+
+        clearAllMarks(); // पुराने मार्कर हटाएं
+        
+        const startRow = currentRange.start.row;
+        const startCol = currentRange.start.column;
+
+        aceEditor.replace(newText); // टेक्स्ट बदलें
+        updateChangeCounter(1);
+
+        const endPos = aceEditor.getCursorPosition();
+        const newRange = new Range(startRow, startCol, endPos.row, endPos.column);
+        
+        // हरा मार्कर लगाएं
+        const markerId = aceEditor.session.addMarker(newRange, "green-marker", "text");
+        currentMarkers.push(markerId);
+    }
+
+    function replaceAllCode() {
+        const codeToFind = document.getElementById('findBlock').value;
+        const codeToReplace = document.getElementById('replaceBlock').value;
+        const matchesFound = aceEditor.findAll(codeToFind, { regExp: false });
+        if (matchesFound > 0) {
+            aceEditor.replaceAll(codeToReplace);
+            updateChangeCounter(matchesFound);
+            showCustomAlert(`✅ शानदार! कोड की ${matchesFound} कॉपियां बदल दी गई हैं।`);
+        } else {
+            showCustomAlert('कुछ भी बदलने के लिए नहीं मिला।');
+        }
+    }
+
+    function findNext() { aceEditor.findNext(); }
+    function findPrev() { aceEditor.findPrevious(); }
+    // --- File & Other Functions ---
+    function uploadFile() { document.getElementById('fileInput').click(); }
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                showSection('editor'); 
+                aceEditor.setValue(e.target.result, -1);
+                document.getElementById('fileNameSP').textContent = `फाइल: ${file.name}`;
+                
+                // Show filename in Find Box Label
+                const findLabelName = document.getElementById('uploadedFileName');
+                if(findLabelName) findLabelName.innerHTML = `<i class="fas fa-file-code"></i> ${file.name}`;
+
+                resetChangeCounter();
+                setTimeout(() => { aceEditor.resize(); }, 100); // Increased timeout for safety
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    async function clearEditor() {
+        const confirmed = await showCustomConfirm('क्या आप वाकई एडिटर को पूरी तरह साफ करना चाहते हैं?');
+        if (confirmed) { 
+            loadInitialCode('');
+            resetChangeCounter();
+            document.getElementById('fileNameSP').textContent = 'फाइल: index.html';
+        }
+    }
+
+    function downloadFile() {
+        // 1. मौजूदा फाइल का नाम लें
+        const currentName = document.getElementById('fileNameSP').textContent.replace('फाइल: ', '').trim() || 'index.html';
+        
+        // 2. इनपुट बॉक्स में वो नाम भरें
+        const inputField = document.getElementById('renameInput');
+        inputField.value = currentName;
+        
+        // 3. मोडल (बॉक्स) दिखाएं
+        document.getElementById('renameModal').style.display = 'flex';
+        
+        // 4. इनपुट पर फोकस करें और सारा टेक्स्ट सिलेक्ट करें (आसान रिनेमिंग के लिए)
+        setTimeout(() => {
+            inputField.focus();
+            inputField.select();
+        }, 100);
+    }
+
+    function closeRenameModal() {
+        document.getElementById('renameModal').style.display = 'none';
+    }
+
+    function confirmDownload() {
+        // 1. नया नाम उठाएं
+        let fileName = document.getElementById('renameInput').value.trim();
+        if (!fileName) fileName = 'index.html';
+        
+        // 2. अगर एक्सटेंशन (.html) नहीं लगाया है, तो अपने आप लगा दें
+        if (!fileName.includes('.')) fileName += '.html';
+
+        // 3. डाउनलोड प्रोसेस शुरू करें
+        const blob = new Blob([aceEditor.getValue()], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+
+        // 4. मोडल बंद करें
+        closeRenameModal();
+        
+        // 5. फाइल का नाम UI में भी अपडेट कर दें
+        document.getElementById('fileNameSP').textContent = `फाइल: ${fileName}`;
+    }
+
+    // Enter Key दबाने पर डाउनलोड हो जाए (UX के लिए)
+    document.getElementById('renameInput').addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            confirmDownload();
+        }
+    });
+
+    function openPreview() {
+        try {
+            const newWindow = window.open();
+            newWindow.document.write(aceEditor.getValue());
+            newWindow.document.close();
+        } catch (e) {
+            showCustomAlert('पॉप-अप ब्लॉक हो गया!');
+        }
+    }
+
+    function runCode() {
+        updatePreview();
+        const runBtn = document.querySelector('.footer-toolbar .btn');
+        if(runBtn) {
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            setTimeout(() => { runBtn.innerHTML = '<i class="fas fa-play"></i> रन'; }, 500);
+        }
+    }
+    
+    function toggleToolbar() {
+        document.body.classList.toggle('toolbar-collapsed');
+    }
+
+    // --- Event Listeners ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // --- THIS IS THE CRITICAL FIX ---
+        // 1. First, find the element and read its content.
+        const editorDiv = document.getElementById('codeEditor');
+        const initialContent = editorDiv.textContent;
+        
+        // 2. NOW, initialize Ace Editor. It will clear the div, but we have the content safe.
+        aceEditor = ace.edit(editorDiv);
+        
+        ace.require("ace/ext/language_tools");
+        aceEditor.setOptions({
+            mode: "ace/mode/html",
+            selectionStyle: "text",
+            wrap: true,
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: true,
+            fontSize: "14px",
+            fontFamily: 'Monaco, Menlo, monospace'
+        });
+        
+        // Load themes, colors etc.
+        const savedMode = localStorage.getItem('editorThemeMode') || 'dark';
+        setLightDark(savedMode);
+        
+        const savedColor = localStorage.getItem('editorAccentColor') || '#007aff';
+        const savedHoverColor = localStorage.getItem('editorAccentHoverColor') || '#005ecb';
+        document.documentElement.style.setProperty('--accent-color', savedColor);
+        document.documentElement.style.setProperty('--accent-hover-color', savedHoverColor);
+        document.querySelectorAll('.color-swatch').forEach(sw => {
+            sw.classList.toggle('active', sw.getAttribute('data-color') === savedColor);
+        });
+        
+        // 3. Load the code using our robust function with the CORRECT initial content.
+        loadInitialCode(initialContent); 
+        
+        aceEditor.session.getUndoManager().reset();
+        updateUndoRedoButtons();
+        updatePreview();
+
+        // Standard change listener
+        aceEditor.session.on('change', () => {
+            updatePreview();
+            saveCodeToLocalStorage();
+            updateUndoRedoButtons();
+        });
+
+        // Other UI setup
+        if (window.innerWidth <= 768) { showSection('editor'); }
+        const savedChanges = parseInt(localStorage.getItem('editorTotalChanges') || '0');
+        if (savedChanges > 0) {
+            totalChanges = savedChanges;
+            document.getElementById('changeCounter').innerHTML = `<i class="fas fa-sync-alt"></i> ${totalChanges}`;
+            document.getElementById('changeCounter').style.display = 'inline-flex';
+        }
+        
+        const observer = new MutationObserver(() => {
+            if (document.getElementById('editorSection').classList.contains('active')) {
+                aceEditor.resize();
+            }
+        });
+        observer.observe(document.getElementById('editorSection'), { attributes: true, attributeFilter: ['class'] });
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (sidePanelOpen) return;
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 's') { e.preventDefault(); downloadFile(); }
+        }
+        if (e.key === 'Escape' && sidePanelOpen) { toggleSidePanel(); }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (sidePanel.classList.contains('open') && !sidePanel.contains(event.target) && !hamburgerMenu.contains(event.target)) {
+            toggleSidePanel();
+        }
+    });
+    </script>
+</body>
+</html>
